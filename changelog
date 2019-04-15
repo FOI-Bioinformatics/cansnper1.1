@@ -1,0 +1,94 @@
+2017-03-29  Emil Hägglund <emil.hagglund@foi.se> & Andreas Sjödin <andreas.sjodin@foi.se>
+        CanSNPer version 1.0.9
+        * Added Dockerfile
+
+2016-11-25  Emil Hägglund <emil.hagglund@foi.se> & Andreas Sjödin <andreas.sjodin@foi.se>
+        CanSNPer version 1.0.8
+        * bug fix release
+        Minor release to fix rumtime bug introduced in 1.0.7
+
+2016-11-25  Emil Hägglund <emil.hagglund@foi.se> & Andreas Sjödin <andreas.sjodin@foi.se>
+        CanSNPer version 1.0.7
+        * setup.py
+        Major rearrangement of of the code to allow installation using setup.py.
+        * Francisella
+        Added B.44-B-80 describing the Iberian, Orebro, Bulgarian and Finish isolates.
+        * Brucella
+        First version of Brucella CanSNPer support. 
+
+
+2016-06-01  Adrian Lärkeryd & Andreas Sjödin <andreas.sjodin@foi.se>
+        CanSNPer version 1.06
+        * (draw_ete2_tree)
+        Improve the coloring by making missing SNPs due to gaps to by colored grey .
+        * (align)
+        Print percent similarity between sequences for verbose mode.
+
+
+
+2015-01-19  Adrian Lärkeryd  <adrian.larkeryd@foi.se>
+	CanSNPer version 1.05
+	* (multi_tree_walker)
+	Many developer printouts were added to debug the walking algorithm.
+	* (multi_tree_walker)
+	Changed the name of cont_flag to force_flag to better describe what it
+	stands for
+	* (multi_tree_walker)
+	Changed how forcing a node works. Now handles leaves when forcing and
+	fixed a bug that caused sequences to be classified as non-derived nodes,
+	even though CanSNPer at the same time warned that this node was not
+	derived.
+	* (align)
+	Changed multiprocessing operations to subprocess Popens. This was done to
+	get rid of some waiting time where the previous implementation had to wait
+	for all processes in a batch to end before starting the next batch. Now
+	new processes start immediately when one is done, keeping the number at
+	batch size.
+	* (align)
+	Removed verbose output that said which references were being aligned. This
+	must now be seen in the dev printout that lists Mauve commands if the
+	information is needed.
+
+2014-02-14  Adrian Lärkeryd  <adrian.larkeryd@foi.se>
+	CanSNPer version 1.04
+	* GALAXY TOOL, added CanSNPer.xml
+	* (parse_arguments, read_config)
+	Added a --galaxy argument that will cause behaviour apropriate for when
+	running the Galaxy tool that was just created.
+	* (draw_ete2_tree)
+	Changed file_name to tree_file_name for clarity and added a DEV printout
+	* (align)
+	Added a DEV printout for progressiveMauve commands
+	Added a check for the --galaxy argument that determines where to put the
+	tree pdf file. In case of galaxy it is put in the working directory,
+	otherwise works like before (ie in the query file directory)
+
+2013-12-06  Adrian Lärkeryd  <adrian.larkeryd@foi.se>
+	
+	CanSNPer version 1.03
+	* (import_sequence)
+	Fixed a bug where if the same strain name was used in multiple organisms
+	loading the sequence to the second organism only updated the "old" one
+	because it only checked for strain name. Now checks organism as well.
+
+2013-10-17  Adrian Lärkeryd  <adrian.larkeryd@foi.se>
+	
+	CanSNPer version 1.02
+	* (import_to_db)
+	Changed the strings imported to the db with the --import_snp_file to be
+	unicode strings.
+	* (import_tree)
+	Fixed a bug where the same node name in several trees caused errors in
+	newick creation.
+
+2013-10-14  Adrian Lärkeryd  <adrian.larkeryd@foi.se>
+	
+	CanSNPer version 1.01
+	* (parse_arguments)
+	Print help if no arguments were sent to CanSNPer.
+	* (purge_organism)
+	Make sure the user wants to delete organism by asking.
+
+2013-10-10  Adrian Lärkeryd <adrian.larkeryd@foi.se>
+	
+	CanSNPer version 1.00
