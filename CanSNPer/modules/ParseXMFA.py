@@ -57,23 +57,32 @@ class CanSNPerClassification(object):
 		WHERE Strain = '{reference}'
 		return results as a dictionary with tuple SNP for each position {pos: (refBase, TargetBase)}
 		'''
+		#print(reference)
 		res = self.database.query(
 			"""SELECT Strain, Position, Derived_base, Ancestral_base, SNP
 					FROM {organism}
-					WHERE Strain = '{reference}'
-			""".format(organism=organism, reference=reference))
+					WHERE Strain = ?
+			""".format(organism=organism), reference)
+		#print("SELECT Strain, Position, Derived_base, Ancestral_base, SNP FROM {organism} WHERE Strain = ?".format(organism=organism))
+		#res = self.database.query("SELECT Strain, Position, Derived_base, Ancestral_base, SNP FROM {organism} WHERE Strain = ?".format(organism=organism),reference)
+
+		# res = self.database.query(
+		# 	"""SELECT Strain, Position, Derived_base, Ancestral_base, SNP
+		# 			FROM {organism}
+		# 	""".format(organism=organism))
 		results = {}
 		for strain, pos,tbase,rbase, SNP in res.fetchall():
 			#print(strain)
 			#print(tuple([pos,rbase, tbase]))
 			results[pos] = tuple([pos,rbase, tbase,SNP])
+		#print(results)
 		return results
 
 
 
 class ParseXMFA(object):
 	"""docstring for ParseXMFA."""
-	def __init__(self, *args,main=False,verbose=False, **kwargs):
+	def __init__(self, main=False, verbose=False, **kwargs):
 		super(ParseXMFA, self).__init__()
 		### Define translation table
 		self.rcDict = {
@@ -151,10 +160,11 @@ class ParseXMFA(object):
 				if head["sign"] == "-":
 					'''Again if sign is "-" the complement base needs to be retrieved'''
 					_snp = self.reverse_complement(_snp)
-		if tbase in _snp:                ## If Derived (target) base is in target sequence then call SNP
+		if tbase == _snp:                ## If Derived (target) base is in target sequence then call SNP
 			if self.verbose: print((_rbase), (tbase), snp, head["sign"], "Called")
 			#return(set([snp[3]]))
 			return set([snp[3]])  ## Return SNP
+			#return set([snp])  ## Return SNP
 		return set()
 
 	def parse_head(self,head):
@@ -205,6 +215,14 @@ class ParseXMFA(object):
 				### Join together all SNPs found in data
 				self.SNPS |= self.read_sequence(seqP)
 		return self.SNPS
+
+	def get_references(self,database):
+		'''Get query'''
+		db = DatabaseConnection(database)
+		query = """SELECT DISTINCT(Strain) FROM Sequences"""
+		res = db.query(query).fetchall()
+		db.disconnect()
+		return res
 
 	def run(self, database, xmfa, organism,reference):
 		'''Run script function if class is called from other script'''

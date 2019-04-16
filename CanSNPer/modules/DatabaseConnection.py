@@ -34,6 +34,9 @@ class DatabaseConnection(object):
 		raise ConnectionError("Count not connect to the database {database} see above message for details!".format(database=database))
 		return None
 
+	def disconnect(self):
+		self.conn.close()
+
 	def create_cursor(self,conn):
 		'''Create a db cursor'''
 		try:
@@ -48,15 +51,15 @@ class DatabaseConnection(object):
 	def commit(self):
 		self.conn.commit()
 
-	def query(self,query,insert_val = False, cursor=False):
+	def query(self,query,values = False, cursor=False):
 		'''    The query function controls  the error handling of sqlite3 execute'''
 		res = False
+		if self.verbose: print(query)
 		if not cursor:
 			cursor = self.cursor
 		try:
-			if insert_val:
-				cursor.execute(query,insert_val)
-				return cursor.lastrowid
+			if values:
+				return cursor.execute(query,values)
 			else:
 				return cursor.execute(query)
 		except Exception as e:

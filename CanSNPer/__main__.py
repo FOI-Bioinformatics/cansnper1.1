@@ -20,7 +20,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-from sys import stderr, argv, version_info, exit
+from sys import stderr, argv, version_info, exit,version_info
 from os import path, remove, makedirs, getcwd
 from shutil import copy as shutil_copy
 from uuid import uuid4
@@ -48,13 +48,16 @@ def zopen(path,*args, **kwargs):
 	'''Redefine open to handle zipped files automatically'''
 	if path.endswith(".gz"):
 		#print(sys.version_info.major)
-		if str(*args) in ["r","w"] and sys.version_info.major >= 3:
+		if str(*args) in ["r","w"] and version_info.major >= 3:
 			## Python version three and above interprets binary formats as binary, add t (rt) to get text returned
-			args = (str(*args)+"t",)
-			#print("Opening: ", args)
-		#print("Opening wrong: ", args)
+			#args = (str(*args)+"t",)
+			print("Opening: ", args)
+		print("Opening wrong: ", args)
 		return gzip.open(path,*args,**kwargs)
 	else:
+		#if str(*args) in ["r","w"] and version_info.major >= 3:
+			## Python version three and above interprets binary formats as binary, add t (rt) to get text returned
+			#args = (str(*args)+"t",)
 		return open(path,*args,**kwargs)
 
 def parse_arguments():
@@ -371,7 +374,7 @@ def initialise_table(config, c):
 		# Try to execute, otherwise spit out the error
 		c.execute("CREATE TABLE IF NOT EXISTS Tree (Name text, Children text, Organism text)")
 		c.execute("CREATE TABLE IF NOT EXISTS Sequences (Organism text, Strain text, Sequence text)")
-		c.execute("CREATE TABLE IF NOT EXISTS %s (SNP text, Reference text, Strain text, Position integer, Derived_base text, Ancestral_base text)" % organism_name)
+		c.execute("CREATE TABLE IF NOT EXISTS %s (SNP VARCHAR(5), Reference VARCHAR(255), Strain VARCHAR(100), Position integer, Derived_base NCHAR(1), Ancestral_base NCHAR(1))" % organism_name)
 	except sqlite3.OperationalError as e:
 		exit("#[ERROR in %s] SQLite OperationalError: %s" % (config["query"], str(e)))
 
@@ -459,22 +462,22 @@ def import_to_db(file_name, config, c):
 		if line != "" and line[0] != "#":
 			line = line.strip()
 			values = line.split("\t")
-			unicode_values = list()
-			for value in values:
-				#print(value)
-				unicode_values.append(str.encode(value.strip(), encoding="utf8"))
-				#unicode_values.append(value)
-			snpname = unicode_values[0]
+			#values = list()
+			# for value in values:
+			# 	#print(value)
+			# 	values.append(str.encode(value.strip(), encoding="utf8"))
+				#values.append(value)
+			snpname = values[0]
 			c.execute("SELECT SNP from %s WHERE SNP=?" % db_name, (snpname,))
 			if c.fetchone():
-				if len(unicode_values) == 7:
+				if len(values) == 7:
 					c.execute("UPDATE %s SET Reference = ?, Strain = ?, Position = ?, Derived_base = ?, Ancestral_base = ? WHERE SNP = ?" % db_name,
-							  (unicode_values[2], unicode_values[3], int(unicode_values[4]),
-							   unicode_values[5], unicode_values[6], snpname))
+							  (values[2], values[3], int(values[4]),
+							   values[5], values[6], snpname))
 			else:
-				if len(unicode_values) == 7:
-					queries.append((snpname, unicode_values[2], unicode_values[3],
-								   int(unicode_values[4]), unicode_values[5], unicode_values[6]))
+				if len(values) == 7:
+					queries.append((snpname, values[2], values[3],
+								   int(values[4]), values[5], values[6]))
 				else:  # Skip line if one of the pieces of information is missing
 					print("#Skipping:", values)
 	c.executemany("INSERT INTO %s VALUES(?,?,?,?,?,?)" % db_name, queries)
@@ -558,7 +561,6 @@ def tree_to_newick(organism, config, c):
 			print("#[DEV]", node)
 	result = ''
 	count = 0  # Counter to stop if it doesnt work properly
-	#print(nodes)
 	while nodes and count < 10000:  # Run the loop a maximum of 10000 times
 		for node in nodes:  # Go through all nodes
 			search_regex = re.compile("[(|,]" + node[0] + "[,|)]")
@@ -592,7 +594,7 @@ def tree_to_newick(organism, config, c):
 
 
 def CanSNPer_tree_layout(node):
-	'''Layout style for ETE2 trees.'''
+	'''Layout style for ETE3 trees.'''
 	name_face = AttrFace("name")
 	# Adds the name face to the image at the top side of the branch
 	faces.add_face_to_node(name_face, node, column=0, position="branch-top")
@@ -854,7 +856,7 @@ def mauve_error_check(num, config):
 	mauve_errors_file.close()
 
 	if mauve_errors:  # Quit if there was something wrong
-		exit("#[ERROR in %s] progressiveMauve filed to complete:\n%s" % (config["query"], mauve_errors))
+		exit("#[ WARNING: in %s] progressiveMauve filed to complete:\n%s" % (config["query"], mauve_errors))
 
 	# Remove the file if there were no errors, annoying to have an empty file lying around
 	silent_remove("%s/CanSNPer_err%s.txt" % (config["tmp_path"], num))
@@ -865,10 +867,14 @@ def parse_xmfa(XMFA_obj, database, xmfa_file, organism,reference,results=[]):
 	results.put(snps)
 	return results
 
+def get_refs(xmfa_obj,database):
+	'''Get which references exists in the database'''
+	return xmfa_obj.get_references(database)
+
 def xmfa_multiproc(xmfa_obj, seq_uids, tmp_path,out_name,database,organism):
 	'''function to run addition of genomes in paralell'''
 	jobs = []
-	refs = ["FSC200","SCHUS4.1","SCHUS4.2","OSU18"]
+	refs = get_refs(xmfa_obj,database) #["FSC200","SCHUS4.1","SCHUS4.2","OSU18"]
 	snps = set()
 	result_queue = Queue()
 	for i in range(len(seq_uids)):
@@ -951,18 +957,13 @@ def align(file_name, config, c):
 			fasta_name = seq_uids[i]
 
 		# Write the commands that will be run. one for each reference sequence
-		mauve_jobs.append("%s --output=%s.%s.xmfa " % (config["mauve_path"], output, seq_uids[i]) +
+		job = ("%s --output=%s.%s.xmfa " % (config["mauve_path"], output, seq_uids[i]) +
 						  "%s/CanSNPer_reference_sequence.%s.fa %s > " % (config["tmp_path"],
 																		  seq_uids[i], file_name) +
 						  "/dev/null 2> %s/CanSNPer_err%s.txt" % (config["tmp_path"], seq_uids[i]))
+		mauve_jobs.append(job.strip()+"\n")
 
-		x2f_jobs.append("%s %s.%s.xmfa %s/CanSNPer_reference_sequence.%s.fa " % (config["x2fa_path"],
-						output, seq_uids[i], config["tmp_path"], seq_uids[i]) +
-						"0 %s.%s.fa 2> %s/CanSNPer_xerr%s.txt" % (output, fasta_name,
-																  config["tmp_path"], seq_uids[i]))
-
-	#print(mauve_jobs)
-	# Starting the processes that use progressiveMauve to align sequences
+	#Starting the processes that use progressiveMauve to align sequences
 	while True:
 		while mauve_jobs and len(processes) < max_threads:
 			job = mauve_jobs.pop()
@@ -982,52 +983,7 @@ def align(file_name, config, c):
 	#print(x2f_jobs)
 	xmfa_obj = ParseXMFA()
 	snplist = xmfa_multiproc(xmfa_obj,seq_uids, config["tmp_path"],out_name,config["db_path"],config["reference"])
-	#exit()
-	# while True:
-	# 	while x2f_jobs and len(processes) < max_threads:
-	# 		job = x2f_jobs.pop()
-	# 		processes.append(Popen(job, shell=True))
-	# 		if config["dev"]:
-	# 			print("#[DEV] x2fa.py command: %s" % job)
-	# 	for p in processes:
-	# 		if p.poll() is not None:
-	# 			processes.remove(p)
-	# 	if not processes and not x2f_jobs:
-	# 		break
-	# 	time.sleep(0.5)
-	# for uid in seq_uids:  # Errorcheck x2fa.py
-	# 	x2fa_error_check(seq_uids[uid], config)
-
-	# Now we have aligned sequences, read them into memory and
-	# start working through the tree
-	# alternates = dict()
-	# for i in range(1, seq_counter + 1):
-	# 	if config["save_align"]:
-	# 		fasta_name = reference_sequences[i]
-	# 	else:
-	# 		fasta_name = seq_uids[i]
-	# 	#print(fasta_name)
-	# 	fasta_name_readable = reference_sequences[i]
-	# 	alignment_file = zopen("%s.%s.fa" % (output, fasta_name), "r")
-	# 	sequences = alignment_file.read().split(">")[1:]
-	# 	alignment_file.close()
-	# 	#reference = "".join(sequences[0].split("\n")[1:])
-	# 	#alternate = "".join(sequences[1].split("\n")[1:])
-	# 	reference = joinbyte(sequences[0].split("\n")[1:])
-	# 	alternate = joinbyte(sequences[1].split("\n")[1:])
-	# 	#print(len(reference),len(alternate))
-	# 	alternates[reference_sequences[i]] = alternate
-		# identity_counter = 100
-		# for j in range(len(reference)):
-		# 	if reference[j] == alternate[j]:
-		# 		identity_counter += 1
-		# if config["verbose"]:
-		# 	print("#Seq identity with %s: %.2f%s" % (fasta_name_readable, float(identity_counter) /
-		# 		  float(len(reference)) * 100, "%"))
-		# if float(identity_counter) / float(len(reference)) < 0.8:
-		# 	WARNINGS["ALIGNMENT_WARNING"] = "#[WARNING in %s] Sequence identity between %s and a reference strain of" % (config["query"], out_name) +\
-		# 		" %s was only %.2f percent" % (db_name, float(identity_counter) / float(len(reference)) * 100)
-
+	print(snplist)
 	root = find_tree_root(db_name, c, config)  # Find the root of the tree we are using
 	if config["verbose"]:
 		print("#Using tree root:", root)
@@ -1052,51 +1008,6 @@ def align(file_name, config, c):
 		else:
 			tree_file_name = "%s_tree.pdf" % file_name
 		draw_ete3_tree(db_name, snplist, tree_file_name, config, c)
-	# Tree walker!
-	# tree_location = multi_tree_walker(root, alternates, db_name, config["allow_differences"],
-	# 								  list(), config, c, force_flag)
-	#
-	# # print(the results of our walk)
-	# if config["tab_sep"]:
-	# 	print("%s\t%s" % (out_name, tree_location[0]))
-	# else:
-	# 	print("Classification of %s: %s" % (out_name, tree_location[0]))
-	#
-	# if tree_location[1]:
-	# 	incorrect_snps = ""
-	# 	for incorrect_snp in tree_location[1]:
-	# 		incorrect_snps += str(incorrect_snp) + " "
-	# 	WARNINGS["TREE_WARNING"] = "#[WARNING in %s] these SNPs were not in the derived state: %s" % (config["query"], str(incorrect_snps))
-	# 	if config["verbose"]:
-	# 		print("#A forced tree walk was conducted")
-	#
-	# try:  # print(any warnings that may have been collected)
-	# 	stderr.write(str(WARNINGS["ALIGNMENT_WARNING"]) + "\n")
-	# except KeyError:
-	# 	pass
-	# try:
-	# 	stderr.write(str(WARNINGS["TREE_WARNING"]) + "\n")
-	# except KeyError:
-	# 	pass
-	#
-	# # Remove a bunch of tmp files
-	# while seq_counter:
-	# 	if config["save_align"]:
-	# 		destination = getcwd()
-	# 		srcfile = "%s.%s.fa" % (output, reference_sequences[seq_counter])
-	# 		shutil_copy(srcfile, destination)
-	# 		silent_remove("%s.%s.fa" % (output, reference_sequences[seq_counter]))
-	# 	silent_remove("%s.%s.fa" % (output, seq_uids[seq_counter]))
-	# 	silent_remove("%s/CanSNPer_reference_sequence.%s.fa" % (config["tmp_path"],
-	# 				  seq_uids[seq_counter]))
-	# 	silent_remove("%s/CanSNPer_reference_sequence.%s.fa.sslist" % (config["tmp_path"],
-	# 				  seq_uids[seq_counter]))
-	# 	silent_remove("%s.sslist" % (file_name))
-	# 	silent_remove("%s.%s.xmfa" % (output, seq_uids[seq_counter]))
-	# 	silent_remove("%s.%s.xmfa.bbcols" % (output, seq_uids[seq_counter]))
-	# 	silent_remove("%s.%s.xmfa.backbone" % (output, seq_uids[seq_counter]))
-	# 	seq_counter -= 1
-
 
 def main():
 	config = parse_arguments()

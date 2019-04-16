@@ -5,7 +5,7 @@ import sys
 setup(
     name="CanSNPer",
     version="1.1.0",
-    url="https://github.com/adrlar/CanSNPer",
+    url="https://git-int.foi.se/bioinfo/cansnper1.1",
     description="CanSNPer: A toolkit for SNP-typing using NGS data.",
     license="GPL'",
     keywords="Bioinformatics SNP-typing sequence-data",
@@ -17,5 +17,4 @@ setup(
     install_requires=['numpy', 'ete3'],
     packages=['CanSNPer'],
     py_modules=['CanSNPer.modules.ParseXMFA',"CanSNPer.modules.DatabaseConnection"],
-    scripts=['CanSNPer/x2fa.py'],
     entry_points={'console_scripts': ['CanSNPer=CanSNPer.__main__:main']})
