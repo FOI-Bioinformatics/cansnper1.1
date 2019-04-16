@@ -47,12 +47,12 @@ from ete3 import Tree, faces, AttrFace, TreeStyle, NodeStyle
 def zopen(path,*args, **kwargs):
 	'''Redefine open to handle zipped files automatically'''
 	if path.endswith(".gz"):
-		print(sys.version_info.major)
+		#print(sys.version_info.major)
 		if str(*args) in ["r","w"] and sys.version_info.major >= 3:
 			## Python version three and above interprets binary formats as binary, add t (rt) to get text returned
 			args = (str(*args)+"t",)
-			print("Opening: ", args)
-		print("Opening wrong: ", args)
+			#print("Opening: ", args)
+		#print("Opening wrong: ", args)
 		return gzip.open(path,*args,**kwargs)
 	else:
 		return open(path,*args,**kwargs)
@@ -903,6 +903,8 @@ def align(file_name, config, c):
 	output = "%s/%s.CanSNPer" % (config["tmp_path"], out_name)
 	# Get the sequences from our SQLite3 database, and write them
 	# to tmp files that progressiveMauve can read
+	print("SELECT Organism, Strain, Sequence FROM Sequences WHERE Organism = ?", (db_name,))
+
 	c.execute("SELECT Organism, Strain, Sequence FROM Sequences WHERE Organism = ?", (db_name,))
 	seq_counter = 0  # Counter for the number of sequences
 	seq_uids = dict()
@@ -912,7 +914,7 @@ def align(file_name, config, c):
 	if config["verbose"]:
 		print("#Fetching reference sequence(s) ...")
 	for row in c.fetchall():
-		print(row[1])
+		#print(row[1])
 		seq_counter += 1
 		# 32 char long unique hex string used for unique tmp file names
 		seq_uids[seq_counter] = str(seq_counter)#uuid4().hex
@@ -961,21 +963,20 @@ def align(file_name, config, c):
 
 	#print(mauve_jobs)
 	# Starting the processes that use progressiveMauve to align sequences
-	if False:
-		while True:
-			while mauve_jobs and len(processes) < max_threads:
-				job = mauve_jobs.pop()
-				processes.append(Popen(job, shell=True))
-				if config["dev"]:
-					print("#[DEV] progressiveMauve command: %s" % job)
-			for p in processes:
-				if p.poll() is not None:
-					processes.remove(p)
-			if not processes and not mauve_jobs:
-				break
-			time.sleep(0.5)
-		for uid in seq_uids:  # Errorcheck mauve, cant continue if it crashed
-			mauve_error_check(seq_uids[uid], config)
+	while True:
+		while mauve_jobs and len(processes) < max_threads:
+			job = mauve_jobs.pop()
+			processes.append(Popen(job, shell=True))
+			if config["dev"]:
+				print("#[DEV] progressiveMauve command: %s" % job)
+		for p in processes:
+			if p.poll() is not None:
+				processes.remove(p)
+		if not processes and not mauve_jobs:
+			break
+		time.sleep(0.5)
+	for uid in seq_uids:  # Errorcheck mauve, cant continue if it crashed
+		mauve_error_check(seq_uids[uid], config)
 
 	'''CanSNPer1.1 modification, a new xmfa parser has been implemented which will subprocess a function call only'''
 	#print(x2f_jobs)

@@ -216,6 +216,9 @@ class ParseXMFA(object):
 		'''Create connection to SNP database and retrieve registered SNPs and save first snp to look for'''
 		self.SNP_DB = CanSNPerClassification(self.database)
 		self.snplist, self.snp_positions = self.get_snps()
+		if len(self.snp_positions) == 0:
+			print("Error no SNPs found")
+			exit()
 		self.current_snp = self.snp_positions.pop(0)
 		res = self.read_xmfa()
 		#print(res)

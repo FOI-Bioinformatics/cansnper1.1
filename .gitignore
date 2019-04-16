@@ -1,0 +1,7 @@
+data
+*egg*
+*.bak
+*.pyc
+build
+*.db
+__pycache__
