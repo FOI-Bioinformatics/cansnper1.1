@@ -6,37 +6,18 @@ ParseXMFA is a script that parse xmfa files and extract all SNPs
 	SNPs near edges of a block to have a impact on classifying decisions.
 '''
 
-__version__ = "0.1.0"
+__version__ = "0.1.3"
 __author__ = "David Sundell"
 __credits__ = ["David Sundell"]
 __license__ = "GPLv3"
 __maintainer__ = "FOI bioinformatics group"
 __email__ = ["bioinformatics@foi.se", "david.sundell@foi.se"]
-__date__ = "2019-03-11"
+__date__ = "2019-04-17"
 __status__ = "Production"
 
 import argparse
 import os, string
 from CanSNPer.modules.DatabaseConnection import DatabaseConnection
-
-import time
-start_time = time.time()
-current_time = start_time
-def report_time(prev_time, final=False,bootstrap=1):
-	current = time.time()
-	diff = current - prev_time
-	if bootstrap > 1:
-		diff = diff/bootstrap
-	seconds = diff % 60
-	minutes = int((diff - seconds)/60)
-	mtext = "minute"
-	if minutes != 1:
-		mtext +="s"
-	if final:
-		print("--- Time summary  {} {} {} seconds---".format(minutes,mtext, seconds))
-	else:
-		print("--- process finished in {} {} {} seconds---\n".format(minutes,mtext, seconds))
-	return current
 
 class CanSNPerClassification(object):
 	"""docstring for CanSNPerClassification."""
@@ -49,33 +30,16 @@ class CanSNPerClassification(object):
 
 		Keyword arguments:
 		organism -- the name of the organism
-
-		1. FSC200
-		2. SCHUS4.1
-		3. SCHUS4.2
-		4. OSU18
-		WHERE Strain = '{reference}'
 		return results as a dictionary with tuple SNP for each position {pos: (refBase, TargetBase)}
 		'''
-		#print(reference)
 		res = self.database.query(
 			"""SELECT Strain, Position, Derived_base, Ancestral_base, SNP
 					FROM {organism}
 					WHERE Strain = ?
 			""".format(organism=organism), reference)
-		#print("SELECT Strain, Position, Derived_base, Ancestral_base, SNP FROM {organism} WHERE Strain = ?".format(organism=organism))
-		#res = self.database.query("SELECT Strain, Position, Derived_base, Ancestral_base, SNP FROM {organism} WHERE Strain = ?".format(organism=organism),reference)
-
-		# res = self.database.query(
-		# 	"""SELECT Strain, Position, Derived_base, Ancestral_base, SNP
-		# 			FROM {organism}
-		# 	""".format(organism=organism))
 		results = {}
 		for strain, pos,tbase,rbase, SNP in res.fetchall():
-			#print(strain)
-			#print(tuple([pos,rbase, tbase]))
 			results[pos] = tuple([pos,rbase, tbase,SNP])
-		#print(results)
 		return results
 
 
@@ -119,7 +83,7 @@ class ParseXMFA(object):
 		## as the snps are ordered according to the reference mauve positions they can be used sequentialy without search
 
 		'''SNPs will be stored as a sorted set containing (position, refBase, targetBase,SNPname)'''
-		self.SNPS = set()
+		self.SNPS = {}
 
 		### This function is not implemented
 		'''If the score option is selected a dictionary from each set to a score is created'''
@@ -155,17 +119,17 @@ class ParseXMFA(object):
 			if ref[ii] != "-":          ## if the reference contains a - do not count as base, else follow reference position
 				i+=1
 			if i == snppos:                ## check the snp position
-				_rbase = ref[ii]        ## get base in reference sequence
 				_snp = target[ii]        ## get base in target sequence
 				if head["sign"] == "-":
 					'''Again if sign is "-" the complement base needs to be retrieved'''
 					_snp = self.reverse_complement(_snp)
+		SNP = {snp[3]:0} ## SNP not found
 		if tbase == _snp:                ## If Derived (target) base is in target sequence then call SNP
 			if self.verbose: print((_rbase), (tbase), snp, head["sign"], "Called")
-			#return(set([snp[3]]))
-			return set([snp[3]])  ## Return SNP
-			#return set([snp])  ## Return SNP
-		return set()
+			SNP[snp[3]] = 1 		## Derived SNP
+		elif rbase == _snp:  		## SNP is found but confirmed to be ancestral
+			SNP[snp[3]] = 2			## Ancestral SNP
+		return SNP
 
 	def parse_head(self,head):
 		'''This help function parses the head of an xmfa file and returns info'''
@@ -182,7 +146,7 @@ class ParseXMFA(object):
 			ref = True
 		return {"ref":ref,"sign":sign, "start":start,"end":end,"relend":relend}
 
-	def read_sequence(self,seqP,res=set()):
+	def read_sequence(self,seqP,res={}):
 		'''read information in sequence pair'''
 		seqLines = seqP.strip().split("> ")
 		headinfo = seqLines[0]
@@ -196,12 +160,12 @@ class ParseXMFA(object):
 					ref = "".join(refSeq)
 					target = "".join(targetSeq)
 					offset = 1
-					res |= self.get_SNPs(ref,target,snp=self.snplist[self.current_snp],head=refHead)
+					res = dict(**res, **self.get_SNPs(ref,target,snp=self.snplist[self.current_snp],head=refHead))
 					if len(self.snp_positions) == 0:
 						break
 					self.current_snp = self.snp_positions.pop(0)
 				return res
-		return set()
+		return {}
 
 	def read_xmfa(self,f=False):
 		'''read xmfa file'''
@@ -213,7 +177,7 @@ class ParseXMFA(object):
 			seqPairs = fcontent.strip().split("=")
 			for seqP in seqPairs:
 				### Join together all SNPs found in data
-				self.SNPS |= self.read_sequence(seqP)
+				self.SNPS = dict(**self.SNPS, **self.read_sequence(seqP))
 		return self.SNPS
 
 	def get_references(self,database):
@@ -238,9 +202,7 @@ class ParseXMFA(object):
 			print("Error no SNPs found")
 			exit()
 		self.current_snp = self.snp_positions.pop(0)
-		res = self.read_xmfa()
-		#print(res)
-		return res
+		return self.read_xmfa()
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Parse xmfa files and extract non overlapping sequences')
@@ -254,12 +216,4 @@ if __name__=="__main__":
 	if args.verbose:
 		print(args)
 	xmfa = ParseXMFA(database=args.database, xmfa=args.xmfa, organism=args.organism,reference=args.reference, main=True)
-	if not args.verbose:
-		snps = xmfa.read_xmfa()
-		print(snps)
-	else:
-		boot = 100
-		print("Time functioncall with bootstrap {boot}".format(boot=boot))
-		for x in range(boot):
-			xmfa.read_xmfa()
-		current_time = report_time(current_time, bootstrap=boot)
+	xmfa.read_xmfa()

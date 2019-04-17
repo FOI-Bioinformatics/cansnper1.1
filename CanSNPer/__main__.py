@@ -133,6 +133,7 @@ def parse_arguments():
 							help="""CanSNPer1.1 will use one core for each mauve
 							 			process, if you are limited to one core
 										turn the feature off here""")
+	parser.add_argument("--skip_mauve", action="store_true", help="Can be used if mauve alignments already exists")
 
 	# Exit and print help if there were no arguments
 	if len(argv) == 1:
@@ -201,6 +202,7 @@ def read_config(args):
 	config["strain_name"] = None
 	config["delete_organism"] = None
 	config["initialise_organism"] = None
+	config["skip_mauve"] = args.skip_mauve
 
 	if args.dev:
 		config["dev"] = True
@@ -402,7 +404,6 @@ def import_sequence(file_name, config, c):
 	whether or not to update the sequence entry.
 
 	'''
-	print(file_name)
 	seq_file = zopen(file_name, "r")
 	seq = "".join(seq_file.read().split("\n")[1:])
 	seq_file.close()
@@ -462,11 +463,6 @@ def import_to_db(file_name, config, c):
 		if line != "" and line[0] != "#":
 			line = line.strip()
 			values = line.split("\t")
-			#values = list()
-			# for value in values:
-			# 	#print(value)
-			# 	values.append(str.encode(value.strip(), encoding="utf8"))
-				#values.append(value)
 			snpname = values[0]
 			c.execute("SELECT SNP from %s WHERE SNP=?" % db_name, (snpname,))
 			if c.fetchone():
@@ -612,7 +608,6 @@ def draw_ete3_tree(organism, snplist, tree_file_name, config, c):
 	newick = tree_to_newick(organism, config, c)
 	tree = Tree(newick, format=1)
 	tree_depth = int(tree.get_distance(tree.get_farthest_leaf()[0]))
-
 	for n in tree.traverse():
 		# Nodes are set to red colour
 		nstyle = NodeStyle()
@@ -625,32 +620,23 @@ def draw_ete3_tree(organism, snplist, tree_file_name, config, c):
 		nstyle["vt_line_width"] = 2
 		nstyle["hz_line_width"] = 2
 		## ['B.3', 'T', 'C', 'A']
-		for snp in snplist:
-			if n.name == snp:
+		for snp in snplist.keys():
+			if n.name == snp and snplist[snp] == 0:
+				# If the SNP is missing due to a gap, make it grey
+				nstyle["fgcolor"] = "#DDDDDD"
+				nstyle["size"] = 10
+				nstyle["vt_line_color"] = "#DDDDDD"
+				nstyle["hz_line_color"] = "#DDDDDD"
+				nstyle["vt_line_type"] = 1
+				nstyle["hz_line_type"] = 1
+			elif n.name == snp and snplist[snp] == 1:
 				nstyle["fgcolor"] = "#99FF66"
 				nstyle["size"] = 15
 				nstyle["vt_line_color"] = "#000000"
 				nstyle["hz_line_color"] = "#000000"
 				nstyle["vt_line_type"] = 0
 				nstyle["hz_line_type"] = 0
-			# if n.name == snp[0]:
-			# 	if snp[1] == snp[3]:
-			# 		# If the SNP is Derived in snplist,
-			# 		# change appearance of node
-			# 		nstyle["fgcolor"] = "#99FF66"
-			# 		nstyle["size"] = 15
-			# 		nstyle["vt_line_color"] = "#000000"
-			# 		nstyle["hz_line_color"] = "#000000"
-			# 		nstyle["vt_line_type"] = 0
-			# 		nstyle["hz_line_type"] = 0
-			# 	elif snp[3] == "-":
-			# 		# If the SNP is missing due to a gap, make it grey
-			# 		nstyle["fgcolor"] = "#DDDDDD"
-			# 		nstyle["size"] = 10
-			# 		nstyle["vt_line_color"] = "#DDDDDD"
-			# 		nstyle["hz_line_color"] = "#DDDDDD"
-			# 		nstyle["vt_line_type"] = 1
-			# 		nstyle["hz_line_type"] = 1
+
 		n.set_style(nstyle)
 	ts = TreeStyle()
 	ts.show_leaf_name = False  # Do not print(leaf names, they are added in layout)
@@ -659,7 +645,6 @@ def draw_ete3_tree(organism, snplist, tree_file_name, config, c):
 	ts.optimal_scale_level = 'full'  # Fully expand the branches of the tree
 	if config["dev"]:
 		print("#[DEV] Tree file: %s" % tree_file_name)
-	#print("Tree file: %s" % tree_file_name)
 	tree.render(tree_file_name, tree_style=ts, w=tree_depth * 500)
 
 
@@ -694,28 +679,6 @@ def find_tree_root(db_name, c, config):
 	if not root:
 		exit("#[ERROR in %s] Could not find root of %s tree" % (config["query"], db_name))
 	return root
-
-
-def snp_lister(sequences, organism, out_name, config, c):
-	'''Returns a list of all SNPs, their positions and state in the sequence.
-
-	Keyword arguments:
-	sequences -- a list of all the query sequences, aligned to each reference
-	organism -- the name of the organism
-	out_name -- the name of the query
-
-	'''
-	c.execute("SELECT Strain, Position, Derived_base, Ancestral_base, SNP FROM %s" % organism)
-	results = list()
-	results.append(["#SNP", "Derived", "Ancestral", out_name])
-	for snp in c.fetchall():
-		try:  # Catch a KeyError that arises when a sequence is missing from the DB
-			results.append([snp[4], snp[2], snp[3], sequences[snp[0]][snp[1] - 1]])
-		except KeyError as e:
-			message = "#[ERROR in %s] SNP position of %s listed in strain that is not in the database: %s" % (config["query"], snp[4], str(e.message))
-			exit(message)
-	return results
-
 
 def multi_tree_walker(node, sequences, organism, threshold, wrong_list, config, c, force_flag=False, quiet=False):
 	'''Tree walking classifier for CanSNPer.
@@ -857,7 +820,6 @@ def mauve_error_check(num, config):
 
 	if mauve_errors:  # Quit if there was something wrong
 		exit("#[ WARNING: in %s] progressiveMauve filed to complete:\n%s" % (config["query"], mauve_errors))
-
 	# Remove the file if there were no errors, annoying to have an empty file lying around
 	silent_remove("%s/CanSNPer_err%s.txt" % (config["tmp_path"], num))
 
@@ -875,21 +837,20 @@ def xmfa_multiproc(xmfa_obj, seq_uids, tmp_path,out_name,database,organism):
 	'''function to run addition of genomes in paralell'''
 	jobs = []
 	refs = get_refs(xmfa_obj,database) #["FSC200","SCHUS4.1","SCHUS4.2","OSU18"]
-	snps = set()
+	snps = {}
 	result_queue = Queue()
 	for i in range(len(seq_uids)):
 		seq_ui = seq_uids[i+1]
 		xmfa = "{tmp_path}/{out_name}.CanSNPer.{seq_ui}.xmfa".format(tmp_path=tmp_path.rstrip("/"), out_name=out_name,seq_ui=seq_ui)
 		ref = refs[i]
-		#print(xmfa_obj,database,xmfa,organism,ref)
 		p = Process(target=parse_xmfa, args=(xmfa_obj,database,xmfa,organism,ref ,result_queue))
 		p.start()
 		jobs.append(p)
 	for job in jobs:
 		job.join()
 	for i in range(len(jobs)):
-		snps |= result_queue.get()
-	return list(snps)
+		snps = dict(**snps, **result_queue.get())
+	return snps
 
 def align(file_name, config, c):
 	'''This function is the "main" of the classifier part of the program.
@@ -909,8 +870,6 @@ def align(file_name, config, c):
 	output = "%s/%s.CanSNPer" % (config["tmp_path"], out_name)
 	# Get the sequences from our SQLite3 database, and write them
 	# to tmp files that progressiveMauve can read
-	print("SELECT Organism, Strain, Sequence FROM Sequences WHERE Organism = ?", (db_name,))
-
 	c.execute("SELECT Organism, Strain, Sequence FROM Sequences WHERE Organism = ?", (db_name,))
 	seq_counter = 0  # Counter for the number of sequences
 	seq_uids = dict()
@@ -920,7 +879,6 @@ def align(file_name, config, c):
 	if config["verbose"]:
 		print("#Fetching reference sequence(s) ...")
 	for row in c.fetchall():
-		#print(row[1])
 		seq_counter += 1
 		# 32 char long unique hex string used for unique tmp file names
 		seq_uids[seq_counter] = str(seq_counter)#uuid4().hex
@@ -943,7 +901,7 @@ def align(file_name, config, c):
 	else:
 		max_threads = config["num_threads"]
 
-	if config["verbose"]:
+	if config["verbose"] and not config["skip_mauve"]:
 		print("#Aligning sequence against %i reference sequence(s) ..." % len(reference_sequences))
 
 	processes = list()
@@ -964,26 +922,26 @@ def align(file_name, config, c):
 		mauve_jobs.append(job.strip()+"\n")
 
 	#Starting the processes that use progressiveMauve to align sequences
-	while True:
-		while mauve_jobs and len(processes) < max_threads:
-			job = mauve_jobs.pop()
-			processes.append(Popen(job, shell=True))
-			if config["dev"]:
-				print("#[DEV] progressiveMauve command: %s" % job)
-		for p in processes:
-			if p.poll() is not None:
-				processes.remove(p)
-		if not processes and not mauve_jobs:
-			break
-		time.sleep(0.5)
-	for uid in seq_uids:  # Errorcheck mauve, cant continue if it crashed
-		mauve_error_check(seq_uids[uid], config)
+	if not True: #config["skip_mauve"]:
+		while True:
+			while mauve_jobs and len(processes) < max_threads:
+				job = mauve_jobs.pop()
+				processes.append(Popen(job, shell=True))
+				if config["dev"]:
+					print("#[DEV] progressiveMauve command: %s" % job)
+			for p in processes:
+				if p.poll() is not None:
+					processes.remove(p)
+			if not processes and not mauve_jobs:
+				break
+			time.sleep(0.5)
+		for uid in seq_uids:  # Errorcheck mauve, cant continue if it crashed
+			mauve_error_check(seq_uids[uid], config)
 
 	'''CanSNPer1.1 modification, a new xmfa parser has been implemented which will subprocess a function call only'''
-	#print(x2f_jobs)
 	xmfa_obj = ParseXMFA()
 	snplist = xmfa_multiproc(xmfa_obj,seq_uids, config["tmp_path"],out_name,config["db_path"],config["reference"])
-	print(snplist)
+
 	root = find_tree_root(db_name, c, config)  # Find the root of the tree we are using
 	if config["verbose"]:
 		print("#Using tree root:", root)
@@ -993,16 +951,7 @@ def align(file_name, config, c):
 	else:
 		force_flag = False
 
-	# if config["list_snps"]:  # Make a raw list of which SNPs the sequence has
-	# 	snp_out_file = zopen("%s_snplist.txt" % file_name, "w")
-	# 	snplist = snp_lister(alternates, db_name, out_name, config, c)
-	# 	for snp in snplist:
-	# 		snp_out_file.write("\t".join(snp) + "\n")
-	# 	snp_out_file.close()
-
 	if config["draw_tree"]:  # Draw a tree and mark positions
-		#snplist = snp_lister(alternates, db_name, out_name, config, c)
-		#print("SNPlist ", snplist[1:])
 		if config["galaxy"]:
 			tree_file_name = getcwd() + "/CanSNPer_tree_galaxy.pdf"
 		else:
