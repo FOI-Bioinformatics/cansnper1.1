@@ -922,7 +922,7 @@ def align(file_name, config, c):
 		mauve_jobs.append(job.strip()+"\n")
 
 	#Starting the processes that use progressiveMauve to align sequences
-	if not True: #config["skip_mauve"]:
+	if not config["skip_mauve"]:
 		while True:
 			while mauve_jobs and len(processes) < max_threads:
 				job = mauve_jobs.pop()

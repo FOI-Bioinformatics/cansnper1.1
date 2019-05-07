@@ -54,19 +54,7 @@ class ParseXMFA(object):
 			 "T" : "A",
 			 "C" : "G",
 			 "G" : "C",
-			 "-" : "-",
-			 "R" : "Y",
-			 "Y" : "R",
-			 "W" : "S",
-			 "S" : "W",
-			 "K" : "M",
-			 "M" : "K",
-			 "D" : "H",
-			 "H" : "D",
-			 "V" : "B",
-			 "B" : "V",
-			 "X" : "X",
-			 "N" : "N"
+			 "-" : "-"
 		}
 		'''Define all base variables'''
 		self.verbose = verbose
