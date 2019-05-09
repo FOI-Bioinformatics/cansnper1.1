@@ -93,11 +93,12 @@ def parse_arguments():
 						help="loads a sequence file into the database")
 	parser.add_argument("--strain_name",
 						help="the name of the strain")
-	parser.add_argument("--allow_differences",
-						help="allow a number of SNPs to be wrong, i.e." +
-						"continue moving down the tree even if none of the " +
-						"SNPs of the lower level are present [0]", type=int,
-						default=0)
+	## Depricated all SNPs will be considered
+	# parser.add_argument("--allow_differences",
+	# 					help="allow a number of SNPs to be wrong, i.e." +
+	# 					"continue moving down the tree even if none of the " +
+	# 					"SNPs of the lower level are present [0]", type=int,
+	# 					default=0)
 	parser.add_argument("-t", "--tab_sep", action="store_true",
 						help="print the results in a simple tab " +
 						"separated format")
@@ -126,13 +127,16 @@ def parse_arguments():
 	parser.add_argument("-f", "--tmp_path",
 						help="where temporary files are stored")
 	parser.add_argument("-q", "--dev", action="store_true", help="dev mode")
-	parser.add_argument("--galaxy", action="store_true",
-						help="argument used if Galaxy is running CanSNPer, " +
-						"do NOT use.")
-	parser.add_argument("--one_core", action="store_true",
-							help="""CanSNPer1.1 will use one core for each mauve
-							 			process, if you are limited to one core
-										turn the feature off here""")
+
+	# parser.add_argument("--galaxy", action="store_true",
+	# 					help="argument used if Galaxy is running CanSNPer, " +
+	# 					"do NOT use.")
+	## Depricated if you are running on a one core machine where the OS does not supports
+	## internal distribution of processes you should upgrade either your server or OS
+	# parser.add_argument("--one_core", action="store_true",
+	# 						help="""CanSNPer1.1 will use one core for each mauve
+	# 						 			process, if you are limited to one core
+	# 									turn the feature off here""")
 	parser.add_argument("--skip_mauve", action="store_true", help="Can be used if mauve alignments already exists")
 
 	# Exit and print help if there were no arguments
@@ -221,8 +225,8 @@ def read_config(args):
 		config["import_seq_file"] = args.import_seq_file
 	if args.strain_name:
 		config["strain_name"] = args.strain_name
-	if args.allow_differences:
-		config["allow_differences"] = int(args.allow_differences)
+	# if args.allow_differences:
+	# 	config["allow_differences"] = int(args.allow_differences)
 	if args.tab_sep:
 		config["tab_sep"] = True
 	if args.draw_tree:
@@ -241,16 +245,16 @@ def read_config(args):
 		config["delete_organism"] = True
 	if args.initialise_organism:
 		config["initialise_organism"] = True
-	if args.galaxy:
-		config["galaxy"] = True
+	# if args.galaxy:
+	# 	config["galaxy"] = True
 	if args.tmp_path:
 		config["tmp_path"] = args.tmp_path
 	if config["dev"]:  # Developer printout
 		print("#[DEV] configurations:%s" % config)
 	if config["verbose"]:
 		print("#Version: %s" % version)
-		if config["galaxy"]:
-			print("#Running through Galaxy")
+		# if config["galaxy"]:
+		# 	print("#Running through Galaxy")
 	return config
 
 
@@ -786,26 +790,6 @@ def multi_tree_walker(node, sequences, organism, threshold, wrong_list, config, 
 		wrong_list.remove(node)
 	return None, wrong_list
 
-
-def x2fa_error_check(num, config):
-	'''Function that checks for errors in x2fa.py runs.
-
-	Keyword arguments:
-	num -- the uuid for this specific x2fa run
-
-	'''
-	# This file contains the stderr output from progressiveMauve
-	x2fa_errors_file = zopen("%s/CanSNPer_xerr%s.txt" % (config["tmp_path"], num), "r")
-	x2fa_errors = x2fa_errors_file.read()
-	x2fa_errors_file.close()
-
-	if x2fa_errors:  # Quit if there was something wrong
-		exit("#[ERROR in %s] x2fa.py failed to complete:\n%s" % (config["query"], x2fa_errors))
-
-	# Remove the file if there were no errors, annoying to have an empty file lying around
-	silent_remove("%s/CanSNPer_xerr%s.txt" % (config["tmp_path"], num))
-
-
 def mauve_error_check(num, config):
 	'''Function that checks for errors in progressiveMauve runs.
 
@@ -826,7 +810,9 @@ def mauve_error_check(num, config):
 def parse_xmfa(XMFA_obj, database, xmfa_file, organism,reference,results=[]):
 	'''Process xmfa file using ParseXMFA object'''
 	snps = XMFA_obj.run(database, xmfa_file, organism,reference)
+	allSNP = XMFA_obj.get_all()
 	results.put(snps)
+	results.put(allSNP)
 	return results
 
 def get_refs(xmfa_obj,database):
@@ -838,6 +824,7 @@ def xmfa_multiproc(xmfa_obj, seq_uids, tmp_path,out_name,database,organism):
 	jobs = []
 	refs = get_refs(xmfa_obj,database) #["FSC200","SCHUS4.1","SCHUS4.2","OSU18"]
 	snps = {}
+	allSNPs = []
 	result_queue = Queue()
 	for i in range(len(seq_uids)):
 		seq_ui = seq_uids[i+1]
@@ -850,7 +837,9 @@ def xmfa_multiproc(xmfa_obj, seq_uids, tmp_path,out_name,database,organism):
 		job.join()
 	for i in range(len(jobs)):
 		snps = dict(**snps, **result_queue.get())
-	return snps
+		allSNPs+= result_queue.get()
+	#print(allSNPs)
+	return snps,allSNPs
 
 def align(file_name, config, c):
 	'''This function is the "main" of the classifier part of the program.
@@ -923,6 +912,7 @@ def align(file_name, config, c):
 
 	#Starting the processes that use progressiveMauve to align sequences
 	if not config["skip_mauve"]:
+		#print("Start Mauve")
 		while True:
 			while mauve_jobs and len(processes) < max_threads:
 				job = mauve_jobs.pop()
@@ -940,7 +930,7 @@ def align(file_name, config, c):
 
 	'''CanSNPer1.1 modification, a new xmfa parser has been implemented which will subprocess a function call only'''
 	xmfa_obj = ParseXMFA()
-	snplist = xmfa_multiproc(xmfa_obj,seq_uids, config["tmp_path"],out_name,config["db_path"],config["reference"])
+	snplist,allSNPs = xmfa_multiproc(xmfa_obj,seq_uids, config["tmp_path"],out_name,config["db_path"],config["reference"])
 
 	root = find_tree_root(db_name, c, config)  # Find the root of the tree we are using
 	if config["verbose"]:
@@ -950,6 +940,13 @@ def align(file_name, config, c):
 		force_flag = True
 	else:
 		force_flag = False
+	if config["tab_sep"]:
+		'''Print SNPs to tab separated file'''
+		with open(getcwd()+"/CanSNPer_snplist.txt","w") as snplist_out:
+			#snpName,snppos,rbase,tbase,_snp
+			print("\t".join(["Name","reference","Pos","Ancestral base","Derived base", "SNP"]),file=snplist_out)
+			for snp in allSNPs:
+				print("\t".join(snp),file=snplist_out)
 
 	if config["draw_tree"]:  # Draw a tree and mark positions
 		if config["galaxy"]:

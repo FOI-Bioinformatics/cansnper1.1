@@ -72,10 +72,14 @@ class ParseXMFA(object):
 
 		'''SNPs will be stored as a sorted set containing (position, refBase, targetBase,SNPname)'''
 		self.SNPS = {}
+		self.allSNP = []  ## List with all SNPs represented with information
 
 		### This function is not implemented
 		'''If the score option is selected a dictionary from each set to a score is created'''
 		#self.score = {}
+
+	def get_all(self):
+		return self.allSNP
 
 	def get_snps(self):
 		'''Retrieve snps from database object'''
@@ -91,7 +95,7 @@ class ParseXMFA(object):
 
 	def get_SNPs(self,ref,target,snp=0,head=0):
 		'''Walk through the paired sequences and save SNPs'''
-		snppos,rbase,tbase,_snp = snp    ## Retrieve all information known about the next upcoming SNP
+		snppos,rbase,tbase,snpName = snp    ## Retrieve all information known about the next upcoming SNP
 		snppos -= int(head["start"])-1  ## python counts from 0 not 1
 		_rbase = False                    ## create place holder for reference base
 		_snp = False                    ## create place holder for target base
@@ -111,6 +115,7 @@ class ParseXMFA(object):
 				if head["sign"] == "-":
 					'''Again if sign is "-" the complement base needs to be retrieved'''
 					_snp = self.reverse_complement(_snp)
+		self.allSNP.append([snpName,list(self.reference)[0],str(snppos),rbase,tbase,_snp])
 		SNP = {snp[3]:0} ## SNP not found
 		if tbase == _snp:                ## If Derived (target) base is in target sequence then call SNP
 			if self.verbose: print((_rbase), (tbase), snp, head["sign"], "Called")
