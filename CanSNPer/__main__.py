@@ -803,7 +803,7 @@ def mauve_error_check(num, config):
 	mauve_errors_file.close()
 
 	if mauve_errors:  # Quit if there was something wrong
-		exit("#[ WARNING: in %s] progressiveMauve filed to complete:\n%s" % (config["query"], mauve_errors))
+		exit("#[ WARNING: in %s] progressiveMauve failed to complete:\n%s" % (config["query"], mauve_errors))
 	# Remove the file if there were no errors, annoying to have an empty file lying around
 	silent_remove("%s/CanSNPer_err%s.txt" % (config["tmp_path"], num))
 
@@ -942,7 +942,9 @@ def align(file_name, config, c):
 		force_flag = False
 	if config["tab_sep"]:
 		'''Print SNPs to tab separated file'''
-		with open(getcwd()+"/CanSNPer_snplist.txt","w") as snplist_out:
+		outname = "%s_snplist.txt" % file_name
+		if config["verbose"]: print("Print SNPs to {file}".format(file=outname))
+		with open(outname,"w") as snplist_out:
 			#snpName,snppos,rbase,tbase,_snp
 			print("\t".join(["Name","reference","Pos","Ancestral base","Derived base", "SNP"]),file=snplist_out)
 			for snp in allSNPs:
