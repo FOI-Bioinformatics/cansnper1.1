@@ -35,8 +35,8 @@ class CanSNPerClassification(object):
 		res = self.database.query(
 			"""SELECT Strain, Position, Derived_base, Ancestral_base, SNP
 					FROM {organism}
-					WHERE Strain = ?
-			""".format(organism=organism), reference)
+					WHERE Strain = "{reference}" ORDER BY Position ASC
+			""". format(organism=organism,reference=reference))
 		results = {}
 		for strain, pos,tbase,rbase, SNP in res.fetchall():
 			results[pos] = tuple([pos,rbase, tbase,SNP])
@@ -96,10 +96,13 @@ class ParseXMFA(object):
 	def get_SNPs(self,ref,target,snp=0,head=0):
 		'''Walk through the paired sequences and save SNPs'''
 		snppos,rbase,tbase,snpName = snp    ## Retrieve all information known about the next upcoming SNP
+		ts1 = snppos
 		snppos -= int(head["start"])-1  ## python counts from 0 not 1
 		_rbase = False                    ## create place holder for reference base
 		_snp = False                    ## create place holder for target base
-
+		if snpName == "B.126":
+			print(snp)
+			print(head)
 		'''i will count the relative position in the reference (without -)'''
 		i = 0
 		''' ii is the actual position in the file '''
@@ -115,6 +118,15 @@ class ParseXMFA(object):
 				if head["sign"] == "-":
 					'''Again if sign is "-" the complement base needs to be retrieved'''
 					_snp = self.reverse_complement(_snp)
+		if snpName == "B.102":
+			t1 = str("".join(list(reversed(target))))
+			t2 = str("".join(list(reversed(ref))))
+			#t1 = target
+			#t2 = ref
+			print([snpName,list(self.reference)[0],str(snppos),rbase,tbase,_snp])
+			print(ts1)
+			print(t1[snppos])
+			print(t2[snppos])
 		self.allSNP.append([snpName,list(self.reference)[0],str(snppos),rbase,tbase,_snp])
 		SNP = {snp[3]:0} ## SNP not found
 		if tbase == _snp:                ## If Derived (target) base is in target sequence then call SNP
@@ -148,17 +160,16 @@ class ParseXMFA(object):
 			refHead = self.parse_head(refSeq.pop(0))
 			targetSeq = seqLines[2].split("\n")
 			targetHead = self.parse_head(targetSeq.pop(0))
-			if refHead["start"] < self.current_snp and refHead["end"] > self.current_snp:
-				while self.current_snp < refHead["end"]:
-					ref = "".join(refSeq)
-					target = "".join(targetSeq)
-					offset = 1
-					res = dict(**res, **self.get_SNPs(ref,target,snp=self.snplist[self.current_snp],head=refHead))
-					if len(self.snp_positions) == 0:
-						break
-					self.current_snp = self.snp_positions.pop(0)
-				return res
-		return {}
+			#if refHead["start"] < self.current_snp and refHead["end"] > self.current_snp:
+			while self.current_snp < refHead["end"]:
+				ref = "".join(refSeq)
+				target = "".join(targetSeq)
+				offset = 1
+				res = dict(**res, **self.get_SNPs(ref,target,snp=self.snplist[self.current_snp],head=refHead))
+				if len(self.snp_positions) == 0:  ## last position not found in this block continue, do not update SNP
+					return res
+				self.current_snp = self.snp_positions.pop(0)
+			return res
 
 	def read_xmfa(self,f=False):
 		'''read xmfa file'''
@@ -170,7 +181,9 @@ class ParseXMFA(object):
 			seqPairs = fcontent.strip().split("=")
 			for seqP in seqPairs:
 				### Join together all SNPs found in data
-				self.SNPS = dict(**self.SNPS, **self.read_sequence(seqP))
+				if len(self.snp_positions) > 0:
+					self.SNPS = dict(**self.SNPS, **self.read_sequence(seqP))
+		print(self.SNPS)
 		return self.SNPS
 
 	def get_references(self,database):
@@ -202,7 +215,7 @@ if __name__=="__main__":
 	parser.add_argument('xmfa', metavar='', type=str, nargs='+', help='fasta xmfa to be parsed')
 	parser.add_argument('database', metavar='',  help='CanSNP database')
 	parser.add_argument('--organism', metavar='', default="Francisella", help="Specify organism")
-	parser.add_argument('--reference', metavar='', default="FSC200",choices=["FSC200","SCHUS4.1","SCHUS4.2","OSU18"], help="Specify organism")
+	parser.add_argument('--reference', metavar='', default="FSC200", help="Specify organism")
 	parser.add_argument('--flank', metavar='',default=200, type=int, help="Min length of gap to be saved to output")
 	parser.add_argument('--verbose',action='store_true',help="print process info, default no output")
 	args = parser.parse_args()

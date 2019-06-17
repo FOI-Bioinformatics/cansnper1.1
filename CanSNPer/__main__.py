@@ -20,6 +20,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
+__version__ = "1.1.0"
+
 from sys import stderr, argv, version_info, exit,version_info
 from os import path, remove, makedirs, getcwd
 from shutil import copy as shutil_copy
@@ -93,12 +95,6 @@ def parse_arguments():
 						help="loads a sequence file into the database")
 	parser.add_argument("--strain_name",
 						help="the name of the strain")
-	## Depricated all SNPs will be considered
-	# parser.add_argument("--allow_differences",
-	# 					help="allow a number of SNPs to be wrong, i.e." +
-	# 					"continue moving down the tree even if none of the " +
-	# 					"SNPs of the lower level are present [0]", type=int,
-	# 					default=0)
 	parser.add_argument("-t", "--tab_sep", action="store_true",
 						help="print the results in a simple tab " +
 						"separated format")
@@ -128,24 +124,21 @@ def parse_arguments():
 						help="where temporary files are stored")
 	parser.add_argument("-q", "--dev", action="store_true", help="dev mode")
 
-	# parser.add_argument("--galaxy", action="store_true",
-	# 					help="argument used if Galaxy is running CanSNPer, " +
-	# 					"do NOT use.")
-	## Depricated if you are running on a one core machine where the OS does not supports
-	## internal distribution of processes you should upgrade either your server or OS
-	# parser.add_argument("--one_core", action="store_true",
-	# 						help="""CanSNPer1.1 will use one core for each mauve
-	# 						 			process, if you are limited to one core
-	# 									turn the feature off here""")
 	parser.add_argument("--skip_mauve", action="store_true", help="Can be used if mauve alignments already exists")
 
+	parser.add_argument("--version", action="store_true", help=argparse.SUPPRESS)
+
 	# Exit and print help if there were no arguments
+
+
 	if len(argv) == 1:
 		parser.print_help()
 		exit()
 
 	args = parser.parse_args()
-
+	if args.version:
+		print("CanSNPer {version}".format(version=__version__))
+		exit()
 	# Send the command line arguments to read_config,
 	# it will return a compiled dict of configurations
 	return read_config(args)
@@ -942,7 +935,7 @@ def align(file_name, config, c):
 		force_flag = False
 	if config["tab_sep"]:
 		'''Print SNPs to tab separated file'''
-		outname = "%s_snplist.txt" % file_name
+		outname = "%s_snplist.txt" % file_name.rstrip(".fna")
 		if config["verbose"]: print("Print SNPs to {file}".format(file=outname))
 		with open(outname,"w") as snplist_out:
 			#snpName,snppos,rbase,tbase,_snp
