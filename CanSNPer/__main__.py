@@ -93,11 +93,12 @@ def parse_arguments():
 						help="loads a sequence file into the database")
 	parser.add_argument("--strain_name",
 						help="the name of the strain")
-	parser.add_argument("--allow_differences",
-						help="allow a number of SNPs to be wrong, i.e." +
-						"continue moving down the tree even if none of the " +
-						"SNPs of the lower level are present [0]", type=int,
-						default=0)
+	## Depricated all SNPs will be considered
+	# parser.add_argument("--allow_differences",
+	# 					help="allow a number of SNPs to be wrong, i.e." +
+	# 					"continue moving down the tree even if none of the " +
+	# 					"SNPs of the lower level are present [0]", type=int,
+	# 					default=0)
 	parser.add_argument("-t", "--tab_sep", action="store_true",
 						help="print the results in a simple tab " +
 						"separated format")
@@ -641,11 +642,11 @@ def draw_ete3_tree(organism, snplist, tree_file_name, config, c):
 	ts = TreeStyle()
 	ts.show_leaf_name = False  # Do not print(leaf names, they are added in layout)
 	ts.show_scale = False  # Do not show the scale
-	ts.layout_fn = CanSNPer_tree_layout  # Use the custom layout
+	ts.layout_fn = self.CanSNPer_tree_layout  # Use the custom layout
 	ts.optimal_scale_level = 'full'  # Fully expand the branches of the tree
 	if config["dev"]:
 		print("#[DEV] Tree file: %s" % tree_file_name)
-	tree.render(tree_file_name, tree_style=ts, w=tree_depth * 500)
+	tree.render(tree_file_name, tree_style=ts, width=tree_depth * 500)
 
 
 def find_tree_root(db_name, c, config):
@@ -819,7 +820,7 @@ def mauve_error_check(num, config):
 	mauve_errors_file.close()
 
 	if mauve_errors:  # Quit if there was something wrong
-		exit("#[ WARNING: in %s] progressiveMauve filed to complete:\n%s" % (config["query"], mauve_errors))
+		exit("#[ WARNING: in %s] progressiveMauve failed to complete:\n%s" % (config["query"], mauve_errors))
 	# Remove the file if there were no errors, annoying to have an empty file lying around
 	silent_remove("%s/CanSNPer_err%s.txt" % (config["tmp_path"], num))
 
@@ -922,7 +923,7 @@ def align(file_name, config, c):
 		mauve_jobs.append(job.strip()+"\n")
 
 	#Starting the processes that use progressiveMauve to align sequences
-	if not True: #config["skip_mauve"]:
+	if not config["skip_mauve"]:
 		while True:
 			while mauve_jobs and len(processes) < max_threads:
 				job = mauve_jobs.pop()
