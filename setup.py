@@ -1,10 +1,11 @@
 from setuptools import setup
 import sys
-
+import pkg_resources  # part of setuptools
+version = pkg_resources.require("CanSNPer")[0].version
 
 setup(
     name="CanSNPer",
-    version="1.1.0",
+    version=version,
     url="https://git-int.foi.se/bioinfo/cansnper1.1",
     description="CanSNPer: A toolkit for SNP-typing using NGS data.",
     license="GPL'",

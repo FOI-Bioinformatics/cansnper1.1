@@ -89,6 +89,50 @@ class DatabaseConnection(object):
 		)
 		return self.query(insertStr,insert_val=values)
 
+class DatabaseStats(DatabaseConnection):
+	"""docstring for DatabaseStats."""
+
+	def __init__(self, database, verbose=False):
+		super(DatabaseStats, self).__init__()
+		self.database = database
+		self.verbose = verbose
+		if self.verbose: print("Loading module DatabaseStats")
+
+	def stats(self):
+		'''Print database stats'''
+		tables = self.tables()
+		return
+
+	def tables(self):
+		'''List tables in database'''
+		return
+
+	def _snp_stats(self, genome=False):
+		'''Get info about the number of SNPs per genome, if genome is supplied only return for one'''
+		return
+
+	def _get_genomes(self):
+		'''Return names of genomes listed in the database'''
+		return
+
+	def _get_snps(self,genome=False):
+		'''Return all SNPs present in the database sorted by genome, start pos.
+			If genome is supplied only return SNPs in that genomes
+		'''
+		return
+
+	def _get_tree(self):
+		'''Return links present in the database'''
+		return
+
+	def all(self):
+		'''Print all available stats in full'''
+		return
+
+	def summary(self):
+		'''Print a summary of database stats, slightly less detailed than stats function'''
+
+
 class DatabaseFunctions(object):
 	"""docstring for DatabaseFunctions."""
 	def __init__(self, database, verbose=False):

@@ -166,10 +166,8 @@ def read_config(args):
 	config_list = {"tmp_path": "string",
 				   "db_path": "string",
 				   "mauve_path": "string",
-				   "x2fa_path": "string",
 				   "num_threads": "int",
 				   "verbose": "boolean",
-				   "allow_differences": "int",
 				   "save_align": "boolean",
 				   "draw_tree": "boolean",
 				   "list_snps": "boolean",
@@ -185,8 +183,6 @@ def read_config(args):
 	config["tmp_path"] = "/tmp/CanSNPer_%s/" % user
 	config["db_path"] = None
 	config["mauve_path"] = "progressiveMauve"  # In your PATH
-	config["x2fa_path"] = "x2fa.py"  # In your PATH
-	config["allow_differences"] = 0
 	config["num_threads"] = 0
 	config["tab_sep"] = False
 	config["verbose"] = False
@@ -222,8 +218,6 @@ def read_config(args):
 		config["import_seq_file"] = args.import_seq_file
 	if args.strain_name:
 		config["strain_name"] = args.strain_name
-	if args.allow_differences:
-		config["allow_differences"] = int(args.allow_differences)
 	if args.tab_sep:
 		config["tab_sep"] = True
 	if args.draw_tree:
@@ -844,6 +838,7 @@ def xmfa_multiproc(xmfa_obj, seq_uids, tmp_path,out_name,database,organism):
 		seq_ui = seq_uids[i+1]
 		xmfa = "{tmp_path}/{out_name}.CanSNPer.{seq_ui}.xmfa".format(tmp_path=tmp_path.rstrip("/"), out_name=out_name,seq_ui=seq_ui)
 		ref = refs[i]
+		print(organism, ref)
 		p = Process(target=parse_xmfa, args=(xmfa_obj,database,xmfa,organism,ref ,result_queue))
 		p.start()
 		jobs.append(p)
@@ -946,11 +941,6 @@ def align(file_name, config, c):
 	root = find_tree_root(db_name, c, config)  # Find the root of the tree we are using
 	if config["verbose"]:
 		print("#Using tree root:", root)
-
-	if config["allow_differences"]:  # Check whether or not to force the first tree node
-		force_flag = True
-	else:
-		force_flag = False
 
 	if config["draw_tree"]:  # Draw a tree and mark positions
 		if config["galaxy"]:
