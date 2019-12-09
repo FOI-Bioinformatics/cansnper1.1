@@ -161,7 +161,7 @@ def read_config(args):
 	'''
 	user = getpass.getuser()
 
-	version = '1.1.0'
+	version = __version__ #'1.1.0'
 
 	config_list = {"tmp_path": "string",
 				   "db_path": "string",
